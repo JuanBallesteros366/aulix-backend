@@ -1,0 +1,124 @@
+import admin from 'firebase-admin';
+import dotenv from 'dotenv';
+
+dotenv.config();
+
+let firestoreInstance: admin.firestore.Firestore | null = null;
+let initializationError: string | null = null;
+
+function parseServiceAccountFromEnv(rawInput: string): {
+  projectId: string;
+  clientEmail: string;
+  privateKey: string;
+} | null {
+  let raw = rawInput.trim();
+
+  // Si viene codificado en Base64 (sin llaves al inicio), lo decodifica primero
+  if (!raw.startsWith('{')) {
+    try {
+      const decoded = Buffer.from(raw, 'base64').toString('utf8');
+      if (decoded.trim().startsWith('{')) {
+        raw = decoded.trim();
+      }
+    } catch {
+      // Continúa con el valor original
+    }
+  }
+
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed.project_id && parsed.client_email && parsed.private_key) {
+      return {
+        projectId: parsed.project_id,
+        clientEmail: parsed.client_email,
+        privateKey: String(parsed.private_key).replace(/\\n/g, '\n'),
+      };
+    }
+  } catch {
+    const pidMatch = raw.match(/"project_id"\s*:\s*"([^"]+)"/);
+    const emailMatch = raw.match(/"client_email"\s*:\s*"([^"]+)"/);
+    const keyMatch = raw.match(
+      /-----BEGIN PRIVATE KEY-----[\s\S]+?-----END PRIVATE KEY-----/
+    );
+
+    if (keyMatch) {
+      return {
+        projectId:
+          pidMatch?.[1]?.trim() ||
+          process.env.FIREBASE_PROJECT_ID ||
+          '',
+        clientEmail:
+          emailMatch?.[1]?.trim() ||
+          process.env.FIREBASE_CLIENT_EMAIL ||
+          '',
+        privateKey: keyMatch[0].replace(/\\n/g, '\n') + '\n',
+      };
+    }
+  }
+  return null;
+}
+
+export function initFirebase(): {
+  db: admin.firestore.Firestore | null;
+  auth: admin.auth.Auth | null;
+  error: string | null;
+} {
+  if (firestoreInstance && admin.apps.length > 0) {
+    return { db: firestoreInstance, auth: admin.auth(), error: null };
+  }
+
+  try {
+    if (admin.apps.length === 0) {
+      const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+      const projectId = process.env.FIREBASE_PROJECT_ID;
+      const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+      const rawPrivateKey = process.env.FIREBASE_PRIVATE_KEY;
+
+      const extracted = serviceAccountJson
+        ? parseServiceAccountFromEnv(serviceAccountJson)
+        : null;
+
+      if (extracted) {
+        admin.initializeApp({
+          credential: admin.credential.cert({
+            projectId: extracted.projectId,
+            clientEmail: extracted.clientEmail,
+            privateKey: extracted.privateKey,
+          }),
+        });
+      } else if (
+        projectId &&
+        clientEmail &&
+        rawPrivateKey &&
+        projectId !== 'tu-proyecto-firebase-id'
+      ) {
+        const privateKey = rawPrivateKey
+          .replace(/^"|"$/g, '')
+          .replace(/\\n/g, '\n');
+
+        admin.initializeApp({
+          credential: admin.credential.cert({
+            projectId,
+            clientEmail,
+            privateKey,
+          }),
+        });
+      } else {
+        initializationError =
+          'Credenciales de Firebase Admin incompletas en Render. Reemplaza el valor de FIREBASE_SERVICE_ACCOUNT_JSON en Render Environment con la cadena Base64 de una sola línea.';
+        return { db: null, auth: null, error: initializationError };
+      }
+    }
+
+    firestoreInstance = admin.firestore();
+    initializationError = null;
+    return { db: firestoreInstance, auth: admin.auth(), error: null };
+  } catch (err) {
+    const message =
+      err instanceof Error
+        ? err.message
+        : 'Error desconocido al inicializar Firebase Admin';
+    initializationError = `Error al inicializar Firebase Admin SDK: ${message}`;
+    return { db: null, auth: null, error: initializationError };
+  }
+}
