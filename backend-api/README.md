@@ -1,60 +1,50 @@
-# Backend API Principal (`backend-api`)
+# backend-api
 
-Servicio RESTful construido con **Node.js + TypeScript + Express + Firebase Admin SDK (Firestore & Auth) + Swagger UI**.
+API de Aulix hecha con Node.js, TypeScript, Express, Firebase Admin (Firestore y Auth) y Swagger.
 
-> **Regla de Arquitectura (TS-00):** El `frontend` nunca consulta Firestore directamente. Toda operación sobre la base de datos pasa por este servicio.
+El frontend nunca consulta Firestore directamente: todo pasa por esta API.
 
----
+## Variables de entorno
 
-## Requisitos Previos
+Copia `.env.example` a `.env` y completa:
 
-- Node.js 20+
-- Proyecto en **Firebase Console** con **Firestore Database** habilitado y una cuenta de servicio (*Service Account*).
+| Variable | Para qué sirve |
+|---|---|
+| `PORT` | Puerto del servidor (en Render lo asigna la plataforma) |
+| `NODE_ENV` | `development` o `production` |
+| `CORS_ORIGIN` | Dominios del frontend permitidos, separados por coma |
+| `SESSION_SECRET` | Texto largo y aleatorio para firmar sesiones |
+| `FIREBASE_SERVICE_ACCOUNT_JSON` | JSON de la cuenta de servicio en una sola línea |
 
----
+En lugar del JSON completo puedes usar `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL` y `FIREBASE_PRIVATE_KEY`.
 
-## Configuración de Variables de Entorno
+La clave se genera en Firebase: Configuración del proyecto, Cuentas de servicio, Generar nueva clave privada.
 
-1. Copia el archivo de ejemplo:
-   ```bash
-   cp .env.example .env
-   ```
-2. En Firebase Console $\rightarrow$ *Configuración del proyecto* $\rightarrow$ *Cuentas de servicio* $\rightarrow$ *Generar nueva clave privada*.
-3. Completa en `.env`:
-   - `FIREBASE_PROJECT_ID`
-   - `FIREBASE_CLIENT_EMAIL`
-   - `FIREBASE_PRIVATE_KEY` (conservando los `\n` y entre comillas)
-   - O bien pega el JSON completo en `FIREBASE_SERVICE_ACCOUNT_JSON`.
-
----
-
-## Ejecución en Desarrollo
+## Ejecutar
 
 ```bash
 npm install
 npm run dev
 ```
 
-El servidor quedará disponible en:
-- **Endpoint Base Técnica (TS-00)**: `http://localhost:4000/api/sprint0/status`
-- **Healthcheck**: `http://localhost:4000/api/health`
-- **Documentación Swagger**: `http://localhost:4000/api-docs`
+- Estado de la base técnica: http://localhost:4000/api/sprint0/status
+- Salud del servicio: http://localhost:4000/api/health
+- Swagger: http://localhost:4000/api-docs
 
----
-
-## Ejecución con Docker
+## Docker
 
 ```bash
 docker build -t aulix-backend-api .
 docker run -p 4000:4000 --env-file .env aulix-backend-api
 ```
 
----
-
 ## Despliegue en Render
 
-1. Crear un nuevo **Web Service** en Render conectado al repositorio de GitHub.
-2. Configurar:
-   - **Root Directory**: `backend-api`
-   - **Environment**: `Docker`
-   - **Variables de Entorno**: `PORT=4000`, `CORS_ORIGIN=https://tu-app.vercel.app`, `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY`.
+1. Crear un Web Service desde el repositorio de GitHub.
+2. Root Directory: `backend-api`. Language: `Docker`.
+3. Agregar las variables de entorno de la tabla (sin `PORT`).
+4. Cuando el frontend esté en Vercel, poner su URL en `CORS_ORIGIN`.
+
+## Capas
+
+`routes` recibe la petición, `services` valida y aplica las reglas, `repositories` habla con Firestore. El middleware `auth.middleware.ts` revisa la sesión en las rutas privadas.
