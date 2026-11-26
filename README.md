@@ -1,59 +1,60 @@
-# Aulix — Backend 
+# Aulix — Backend
 
-Repositorio de servicios de servidor para **Aulix (Salón de Estudio Colaborativo en Tiempo Real)**, organizado con arquitectura separada y contenerizada con Docker.
+Servicios de servidor de **Aulix, Salón de Estudio Colaborativo en Tiempo Real**. El frontend vive en otro repositorio: [aulix-frontend](https://github.com/JuanBallesteros366/aulix-frontend).
 
----
+**En producción**
+- API: https://aulix-backend.onrender.com
+- Swagger: https://aulix-backend.onrender.com/api-docs
 
-## Estructura del Repositorio
+## Estructura
 
 ```text
-backend/
-├── backend-api/          # API REST principal (Node.js + TypeScript + Express + Cloud Firestore + Swagger)
+aulix-backend/
+├── backend-api/          API REST (Node.js, TypeScript, Express, Firestore, Swagger)
 │   ├── src/
-│   │   ├── config/       # Inicialización de Firebase Admin SDK y especificación OpenAPI/Swagger
-│   │   ├── routes/       # Capa de Rutas HTTP (/api/sprint0/status)
-│   │   ├── services/     # Capa de Lógica de Negocio (Sprint0Service)
-│   │   ├── repositories/ # Capa de Acceso a Datos en Cloud Firestore (Sprint0Repository)
-│   │   └── index.ts      # Punto de entrada del servidor Express
-│   ├── .env.example      # Ejemplo de variables de entorno sin credenciales reales
-│   └── Dockerfile        # Contenedor multi-etapa para despliegue en Render
-├── backend-realtime/     # Servidor de Tiempo Real (Node.js + TypeScript + Socket.IO + Señalización WebRTC)
-│   ├── src/
-│   │   └── index.ts      # Servidor Socket.IO y eventos de sala/chat/WebRTC
-│   ├── .env.example      # Variables de entorno de ejemplo (STUN/TURN y orígenes permitidos)
-│   └── Dockerfile        # Contenedor multi-etapa para despliegue en Render
-└── docker-compose.yml    # Levanta ambos servicios de backend con Docker Compose
+│   │   ├── config/       Firebase Admin y Swagger
+│   │   ├── middlewares/  Verificación de sesión (401 sin sesión)
+│   │   ├── routes/       Capa de rutas HTTP
+│   │   ├── services/     Lógica de negocio y validaciones
+│   │   ├── repositories/ Acceso a datos en Firestore
+│   │   └── index.ts      Servidor Express
+│   ├── .env.example      Variables de entorno sin valores reales
+│   └── Dockerfile
+├── backend-realtime/     Servidor de tiempo real (se usa desde el Sprint 2)
+└── docker-compose.yml    Levanta los dos servicios
 ```
 
----
+## Cómo ejecutarlo
 
-## Ejecución en Local
+Necesitas Node.js 20 o superior y un proyecto de Firebase con Firestore y una clave de cuenta de servicio.
 
-### 1. Con Node.js / npm
+**Con npm**
 ```bash
-# 1. Iniciar Backend API (Puerto 4000)
 cd backend-api
-cp .env.example .env
-# Configurar FIREBASE_SERVICE_ACCOUNT_JSON en .env
+cp .env.example .env     # completa los valores
 npm install
-npm run dev
-
-# 2. Iniciar Backend Realtime (Puerto 4001)
-cd ../backend-realtime
-cp .env.example .env
-npm install
-npm run dev
+npm run dev              # http://localhost:4000
 ```
 
-### 2. Con Docker Compose
+**Con Docker Compose** (desde esta carpeta, con `backend-api/.env` ya creado)
 ```bash
 docker compose up --build
 ```
 
----
+## Endpoints
 
-## Endpoints Principales (`backend-api`)
+| Método | Ruta | Acceso |
+|---|---|---|
+| GET | `/api/health` | Público |
+| GET | `/api/sprint0/status` | Público. Lee `system_status/sprint0` de Firestore |
+| GET | `/api/users/check-username` | Público |
+| POST | `/api/users/auth/register`, `/auth/login`, `/auth/google` | Público |
+| GET | `/api/users/me` | Privado |
+| POST | `/api/users/register`, `/api/users/google-sync` | Privado |
+| PUT | `/api/users/username`, `/api/users/avatar` | Privado |
 
-- **`GET /api/sprint0/status`**: Consulta en tiempo real el documento `system_status/sprint0` en Cloud Firestore a través de las 3 capas (`routes` $\rightarrow$ `services` $\rightarrow$ `repositories`).
-- **`GET /api-docs`**: Documentación interactiva publicada con **Swagger UI**.
-- **`GET /health`**: Verificación de salud del contenedor.
+Las rutas privadas responden 401 si no hay sesión. El detalle de cada una está en Swagger (`/api-docs`).
+
+## Seguridad
+
+Las claves van en variables de entorno y nunca en el repositorio. El archivo `.env` está en el `.gitignore`.
