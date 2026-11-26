@@ -431,8 +431,14 @@ export class UserService {
     const clean = (v: string) => v.replace(/\uFE0F/g, '');
     const allowedEmojis = ['🎓', '🚀', '📚', '💡', '⚡'].map(clean);
     const isInitials = /^\p{L}{1,2}$/u.test(avatar);
+    const isImageAvatar = /^avatar-[1-5]$/.test(avatar);
 
-    if (!avatar || (!isInitials && !allowedEmojis.includes(clean(avatar)))) {
+    if (
+      !avatar ||
+      (!isInitials &&
+        !isImageAvatar &&
+        !allowedEmojis.includes(clean(avatar)))
+    ) {
       throw new ValidationError('El avatar elegido no es válido.', 'avatar');
     }
 
